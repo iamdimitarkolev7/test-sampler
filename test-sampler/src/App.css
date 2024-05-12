@@ -1,0 +1,15 @@
+.App {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.text-fields {
+  display: flex;
+  justify-content: center;
+}
+
+.text-fields > * {
+  flex: 1;
+  margin: 50px 10px;
+}
