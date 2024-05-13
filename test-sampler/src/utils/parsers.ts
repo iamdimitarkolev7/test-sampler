@@ -1,5 +1,6 @@
 import * as ts from 'typescript'
 import { IMethod } from './interfaces/IMethod'
+import { IDependencyMap } from './interfaces/IDependencyPath'
 
 export const parseDependencies = (nestJsClass: string): string[] | null => {
   const sourceFile = ts.createSourceFile('temp.ts', nestJsClass, ts.ScriptTarget.Latest, true)
@@ -8,7 +9,7 @@ export const parseDependencies = (nestJsClass: string): string[] | null => {
   const visitNode = (node: ts.Node) => {
     if (ts.isConstructorDeclaration(node)) {
       node.parameters.forEach(param => {
-        if (ts.isParameter(param) && param.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.PrivateKeyword)) {
+        if (ts.isParameter(param)) {
           const type = param.type
           if (type && ts.isTypeReferenceNode(type)) {
             const dependency = type.typeName.getText(sourceFile)
@@ -23,6 +24,30 @@ export const parseDependencies = (nestJsClass: string): string[] | null => {
   visitNode(sourceFile)
 
   return dependencies
+}
+
+export const parseDependencyImportPaths = (nestJsClass: string, dependencies: string[]): IDependencyMap => {
+  const sourceFile = ts.createSourceFile('temp.ts', nestJsClass, ts.ScriptTarget.Latest, true)
+  const dependencyMap: IDependencyMap = {}
+
+  ts.forEachChild(sourceFile, node => {
+    if (ts.isImportDeclaration(node)) {
+      const moduleSpecifier = node.moduleSpecifier
+      if (ts.isStringLiteral(moduleSpecifier)) {
+        const path = moduleSpecifier.text
+        const importClause = node.importClause
+        if (importClause && importClause.namedBindings && ts.isNamedImports(importClause.namedBindings)) {
+          const dependenciesInImport = importClause.namedBindings.elements.map(element => element.getText())
+          const filteredDependencies = dependenciesInImport.filter(dep => dependencies.includes(dep))
+          if (filteredDependencies.length > 0) {
+            dependencyMap[path] = filteredDependencies
+          }
+        }
+      }
+    }
+  })
+
+  return dependencyMap
 }
 
 export const parseClassName = (nestJsClass: string): string | null => {
